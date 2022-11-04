@@ -1,0 +1,49 @@
+{
+    "Starting Ba lance": 5000,
+    "Before": {
+        "mean": 9.07,
+        "%mean": 0.0014146388977021216,
+        "median": -7.2,
+        "%median": -0.001382749994005419,
+        "std dev": 121.79750873228994,
+        "%std dev": 0.022540762448635746,
+        "variance": 14834.633133392244,
+        "range": 928.53,
+        "min range": -208.93,
+        "max range": 719.6,
+        "skewness": 2.7662432575601015,
+        "kurtosis": 12.790179869465133,
+        "sharpe ratio": 0.5273877428289514,
+        "max drawdown": 12.948794391846342,
+        "max drawdown length": [
+            [
+                47,
+                86
+            ]
+        ],
+        "Ending balance": 5807.26149177551
+    },
+    "After": {
+        "mean": 1.0,
+        "%mean": 7.324288725372365e-06,
+        "median": -8.5,
+        "%median": -0.0017461867862927452,
+        "std dev": 95.92215776562381,
+        "%std dev": 0.01934443500965352,
+        "variance": 9201.060350413223,
+        "range": 542.87,
+        "min range": -208.93,
+        "max range": 333.94,
+        "skewness": 1.28699738638407,
+        "kurtosis": 2.877386418109267,
+        "sharpe ratio": 0.0031817235665096157,
+        "max drawdown": 16.368972434801996,
+        "max drawdown length": [
+            [
+                1,
+                7
+            ]
+        ],
+        "Ending balance": 5087.68
+    }
+}

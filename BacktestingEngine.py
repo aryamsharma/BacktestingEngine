@@ -7,9 +7,6 @@ import os
 import math
 import json
 
-import warnings
-warnings.filterwarnings('ignore')
-
 class NpEncoder(json.JSONEncoder):
     """
     Custom encoder for JSON library since it can't use Numpy types

@@ -1,0 +1,9 @@
+{
+    "Filepath": "Data/intraday_trading",
+    "Filtered": true,
+    "Cyclic": true,
+    "Algorithm number": "1",
+    "Account Balance": 5000,
+    "Trade Method": false,
+    "Trade Cost": 2
+}
