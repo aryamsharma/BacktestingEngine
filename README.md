@@ -1,14 +1,15 @@
 # BacktestingEngine
 ## Description
 ___
-This BacktestingEngine allows a trader to program their own ideas with ease. Within the [notebook]("BacktestingAlgos.ipynb"), serveral ideas can be programmed and tested on the spot. After the testing, serveral statiscal analysis tools from the [BacktestingEngine]("BacktestingEngine.py") can be used to determine the effectiveness.
+This BacktestingEngine allows a trader to program their own ideas with ease. Within the [notebook](BacktestingAlgos.ipynb), serveral ideas can be programmed and tested on the spot. After the testing, serveral statiscal analysis tools from the [BacktestingEngine](BacktestingEngine.py) can be used to determine the effectiveness.
 ## Requirements
 python >= 3.7
-Download all python packages within [requirements.txt]("requirements.txt")
+
+Download all python packages within [requirements.txt](requirements.txt)
 ## Usage
 ___
-To test out a new algorithm head to the [notebook]("BacktestingAlgos.ipynb") and within the **Algos** class create two new functions;
-```
+To test out a new algorithm head to the [notebook](BacktestingAlgos.ipynb) and within the **Algos** class create two new functions;
+```python
 def setup2(self, df):
     return df
 def algo2(self, **var):
@@ -26,9 +27,9 @@ Within the algo function is where the actual algorithm resides. It ***must*** re
 
 * **If n = 0**, nothing will be done.
 
-An example (Golden Crossover) is provided within the [notebook]("BacktestingAlgos.ipynb") itself.
+An example (Golden Crossover) is provided within the [notebook](BacktestingAlgos.ipynb) itself.
 
 ## Issues
-1. If a buy signal is follwed by more than one sell signal then the code at line 280 in [BacktestingEngine.py]("BacktestingEngine.py") will fail; See TODO for further explanation.
+1. If a buy signal is follwed by more than one sell signal then the code at line 280 in [BacktestingEngine.py](BacktestingEngine.py) will fail; See TODO for further explanation.
 ## License
 [GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/)
