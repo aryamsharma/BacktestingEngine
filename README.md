@@ -12,20 +12,23 @@ To test out a new algorithm head to the [notebook]("BacktestingAlgos.ipynb") and
 def setup2(self, df):
     return df
 def algo2(self, **var):
-    return 1
+    return 0
 ```
 Where _2_ is the algos number (i.e. if _2_ algos have been created, the new functions will end with _3_).
 
 Within the setup function you can add any new columns (i.e. moving average) to the [pandas](https://github.com/pandas-dev/pandas) DataFrame to be used later in the algorithm. This is purely for decreasing processing and time during runtime. The function ***must*** return a DataFrame back.
-
+___
 Within the algo function is where the actual algorithm resides. It ***must*** return a value, _n_, between -1 and 1.
-**If n > 0**, n is how much of the account should be used to buy shares. Since no fractional trading in this program exists, returing 0.5 will guarantee only, 50% or less, of the account will be used to buy shares. 
-**If n < 0**, n is how much of the shares will be sold, therefore -1 dictates all shares currently being held will be sold. -0.5 means half the shares will be sold.
-**If n = 0**, nothing will be done.
+
+* **If n > 0**, n is how much of the account should be used to buy shares. Since no fractional trading in this program exists, returing 0.5 will guarantee only, 50% or less, of the account will be used to buy shares. 
+
+* **If n < 0**, n is how much of the shares will be sold, therefore -1 dictates all shares currently being held will be sold. -0.5 means half the shares will be sold.
+
+* **If n = 0**, nothing will be done.
 
 An example (Golden Crossover) is provided within the [notebook]("BacktestingAlgos.ipynb") itself.
 
 ## Issues
-1. If a buy signal is follwed by more than one sell signal then the code at line 280 in [BacktestingEngine.py]("BacktestingEngine.py") will fail; See TODO for further explnation.
+1. If a buy signal is follwed by more than one sell signal then the code at line 280 in [BacktestingEngine.py]("BacktestingEngine.py") will fail; See TODO for further explanation.
 ## License
 [GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/)
