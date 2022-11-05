@@ -526,7 +526,7 @@ class StrategyPerformance:
         
         return outliers, normal
 
-    def find_outliers(self, sim_object):
+    def find_outliers(self, sim_object, drawdowns=True):
         """
         Gets the sim_object, looks through for any outliers;
         If there are any outliers, remove them and adjust future numbers accordingly and plot
@@ -550,7 +550,7 @@ class StrategyPerformance:
         for i in range(1, len(data_without_outliers)):
             self.normal.append((starting_balance + cumulative_returns[i], data_without_outliers[i][1], data_without_outliers[i][-1]))
 
-        results = {"Starting Ba lance": sim_object.initial_account_balance}
+        results = {"Starting Balance": sim_object.initial_account_balance}
 
         if self.outliers:
             print("Outliers found")
@@ -559,18 +559,19 @@ class StrategyPerformance:
                 print(f"{sec} at index {self.data.index(sec)}")
 
             print("Before removing outliers")
-            results["Before"] = StrategyPerformance._get_stats(self, self.data, drawdowns=True, plot=True, text="before")
+            results["Before"] = StrategyPerformance._get_stats(self, self.data, drawdowns=drawdowns, plot=True, text="before")
             results["Before"]["Ending balance"] = sim_object.account_balance
     
             print("After removing outliers")
-            results["After"] = StrategyPerformance._get_stats(self, self.normal, drawdowns=True, plot=True, text="after")
+            results["After"] = StrategyPerformance._get_stats(self, self.normal, drawdowns=drawdowns, plot=True, text="after")
             results["After"]["Ending balance"] = self.normal[-1][0]
-            print(results["After"])
-            print(results["Before"])
+            print(f"Before: {results['Before']}")
+            print()
+            print(f"After: {results['After']}")
 
         else:
             print("No outliers")
-            results = StrategyPerformance._get_stats(self, self.data, drawdowns=True, plot=True)
+            results = StrategyPerformance._get_stats(self, self.data, drawdowns=drawdowns, plot=True)
             results["Starting Balance"] = sim_object.initial_account_balance
             results["Ending balance"] = sim_object.account_balance
             print(results)
