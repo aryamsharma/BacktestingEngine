@@ -7,6 +7,9 @@ import os
 import math
 import json
 
+import warnings
+warnings.filterwarnings('ignore')
+
 class NpEncoder(json.JSONEncoder):
     """
     Custom encoder for JSON library since it can't use Numpy types
@@ -23,17 +26,20 @@ class NpEncoder(json.JSONEncoder):
 
         return super(NpEncoder, self).default(obj)
 
+
 class Intraday_Simulator:
-    def __init__(self, filepath):
+    def __init__(self, filepath, granularity):
         """
         Inputs
         :filepath (String) You can provide either the filepath to a single .csv file or a folder filled with .csv files
+        :granularity (String) Provide the granularity of the data (i.e. minute, hour, daily, monthly)
 
         Outputs
         :instance of class
         """
         # self.files = sorted([f"{filepath}/{file}" for file in os.listdir(filepath) if file.endswith(".csv")], key=lambda x: x.split("_")[-1]) if os.path.isdir(filepath) else [filepath]
         # self.is_folder = True if self.files else False
+
         self.filepath = filepath
         if os.path.isdir(filepath):
             self.is_folder = True
@@ -43,10 +49,17 @@ class Intraday_Simulator:
             self.is_folder = False
             self.files = [filepath]
 
+        self.granularity = granularity
+        # Deciding if it should be in the intra bracket or not
+        self.intra = True if self.granularity in ["second", "minute"] else False
+        self.daily = not self.intra
+
+
     def _cost_per_trade(self, shares, func):
         """TODO tiered cost per order put in"""
         return func(shares)
-    
+
+
     def filter_files(self, cycle=False):
         """
         Filter files so that there are only one stock being traded per day
@@ -61,7 +74,6 @@ class Intraday_Simulator:
         Outputs
         :N/A
         """
-        if not self.is_folder: raise Exception("Function made for more than one file")
         dates = [i.split("_") for i in self.files]
         final_dates = []
 
@@ -90,7 +102,10 @@ class Intraday_Simulator:
 
         self.filtered = True
         self.cycled = True
+        # print(self.files)
+        # print(final_dates)
         self.files = final_dates
+
 
     def setup(self, account_balance=10000, trade_method="fixed", trade_cost=0, limit=None, algorithm=None):
         """
@@ -109,6 +124,7 @@ class Intraday_Simulator:
         self.initial_account_balance = account_balance
         self.account_balance = account_balance
         self.algos = algorithm
+        self.total_files = 0
 
         if trade_method == "fixed":
             self.trade_method = False
@@ -119,23 +135,30 @@ class Intraday_Simulator:
             self.trade_method = True
             self.trade_cost = self._cost_per_trade
         
+        """
+        The reason they are commented out is because within the algos class whenever it does row.hasnan it takes up ~50% of the time so if there aren't nay nans to check the problem is gone
+        If row.hasnan is taken out 61.9%
+
+        TODO: There exists some error where if you remove nans your shifting the entire df and that doesn't get accounted especially when presenting the graphs
+        """
+
         self.all_DataFrames = []
-        if limit != 0 and limit >= 1 and limit != None:
-            for file in self.files[:limit]:
-                df = pd.read_csv(file, index_col=0)
-                df.index = pd.to_datetime(df.index)
+
+        # Deciding to slice the list or not
+        tmp = self.files[:limit] if limit != 0 and limit >= 1 and limit != None else self.files
+
+        for file in tmp:
+            self.total_files += 1
+            df = pd.read_csv(file, index_col=0)
+            df.index = pd.to_datetime(df.index)
+
+            if self.intra:
                 df = df.between_time("09:30:00", "16:00:00")
-                df.columns = list(map(str.lower, list(df.columns)))
-                assert len(df.index) > 0, "No rows in DataFrame"
-                self.all_DataFrames.append((self.algos.send_setup(df), file))
-        else:
-            for file in self.files:
-                df = pd.read_csv(file, index_col=0)
-                df.index = pd.to_datetime(df.index)
-                df = df.between_time("09:30:00", "16:00:00")
-                df.columns = list(map(str.lower, list(df.columns)))
-                assert len(df.index) > 0, "No rows in DataFrame"
-                self.all_DataFrames.append((self.algos.send_setup(df), file))
+
+            df.columns = list(map(str.lower, list(df.columns)))
+            assert len(df.index) > 0, "No rows in DataFrame"
+            self.all_DataFrames.append((self.algos.send_setup(df), file))
+            # self.all_DataFrames.append((self.algos.send_setup(df).dropna(), file))
 
     def run(self, warnings=False, verbose=False, progress=False, capture_trades=False, slippage=0):
         """
@@ -147,15 +170,15 @@ class Intraday_Simulator:
         :Net (float)            Net Equity
         :Total trades (Integer) 1 buy and 1 ell is consider to be one trade
         :Trade Win % (float)    if capture_trades is True will return winrate
+        :Trade Win % (float)    if capture_trades is True will return winrate
         """
         shares = 0
-        total_trades = 0
+        self.total_trades = 0
 
-        if self.is_folder:
-            self.all_returns = [(self.account_balance, 0.0, "N/A")]
-            if progress:
-                total = len(self.all_DataFrames)
-                count = 1
+        self.all_returns = [(self.account_balance, 0.0, "N/A")]
+        if progress:
+            total = len(self.all_DataFrames)
+            count = 1
 
         if capture_trades:
             self.all_trades = []
@@ -164,28 +187,31 @@ class Intraday_Simulator:
         
         for df, file in self.all_DataFrames:
             tmp_account_balance = self.account_balance
-            if progress and self.is_folder: print(f"{count} / {total} {file}", end="\r")
+
+            # Converting a dataframe to multiple numpy arrays are much much faster
+            numpy_arrays = [df.loc[:, column] for column in df.columns]
+
+            if progress: print(f"{count} / {total} {file}", end="\r")
             
             initial_day_balance = self.account_balance
             last_market_exposure = 0
-            market_exposure = 0
 
             if capture_trades: day_trades.append(file)
     
             # Market Open
-            for step in range(1, len(df.index) - 1):
-                price = df.iloc[step + 1]["open"]
-                market_exposure = shares * price
+            for step in range(1, df.shape[0] - 1):
+                # price = df.iloc[step + 1]["open"]
+                price = numpy_arrays[0][step + 1]
 
                 # Calling the algorithm
                 ret = self.algos.send_algo(
-                    df=df[:step],
+                    df=df.head(step),
                     # price=df.iloc[step]["close"], // TODO Decide if I need to babyfeed myself
                     balance=self.account_balance,
                     shares=shares,
                     initial_day_balance=initial_day_balance,
                     last_market_exposure=last_market_exposure,
-                    market_exposure=market_exposure,
+                    liquidity=shares * numpy_arrays[3][step],
                     new_stock=step == 1,
                     bought=shares > 0)
                 # print(ret, shares, self.account_balance)
@@ -214,26 +240,22 @@ class Intraday_Simulator:
                     sol_shares = int(shares * abs(ret))
                     if sol_shares == 0:
                         if warnings:
-                            print(f"WARNING Tried to sell {int(shares * abs(ret))} with {shares} shares")
+                            print(f"WARNING Tried to sell {sol_shares} with {shares} shares")
                         continue
-                    total_trades += 1
+                    self.total_trades += 1
                     price *= 1 - slippage
                     if capture_trades: day_trades.append(("S", price, step))
                     self.account_balance += shares * price
                     self.account_balance -= self.trade_cost
-                    market_exposure = 0
                     if verbose: print(f"SOL {sol_shares} at {price} {self.account_balance}")
                     shares -= sol_shares
 
             # Market closed
             if shares > 0:
                 if warnings:
-                    if self.is_folder:
-                        print(f"WARNING {file} has shares outstanding after market close")
-                    else:
-                        print(f"WARNING shares outstanding after market close")
+                    print(f"WARNING {file} has shares outstanding after market close")
     
-                total_trades += 1
+                self.total_trades += 1
                 price *= 1 - slippage
                 if capture_trades: day_trades.append(("S", price, step))
                 self.account_balance += shares * price
@@ -241,39 +263,40 @@ class Intraday_Simulator:
                 if verbose: print(f"SOL {shares} at {price}")
                 shares = 0
 
-            if self.is_folder:
-                final = round(self.account_balance, 2)
-                net = round(self.account_balance - tmp_account_balance, 2)
-                if verbose:
-                    print(f"Done  {file}")
-                    print(f"Start {tmp_account_balance}")
-                    print(f"Final {final}")
-                    print(f"Net   {net}")
-                    print()
-                self.all_returns.append((final, net, file))
+            final = round(self.account_balance, 2)
+            net = round(self.account_balance - tmp_account_balance, 2)
+            if verbose:
+                print(f"Done  {file}")
+                print(f"Start {tmp_account_balance}")
+                print(f"Final {final}")
+                print(f"Net   {net}")
+                print()
+            self.all_returns.append((final, net, file))
 
-            if progress and self.is_folder: count += 1
+            if progress: count += 1
             if capture_trades: 
                 self.all_trades.append(day_trades)
                 day_trades = []
     
-        if progress and self.is_folder: print()
+        if progress: print()
 
         final = round(self.account_balance, 2)
         net = round(self.account_balance - self.initial_account_balance, 2)
 
         del self.all_DataFrames
-        
+
         ret = {
             "Final": final,
             "Net": net,
-            "Total Trades": total_trades
+            "Total Trades": self.total_trades
         }
-        
+
+        self.trade_winrate = np.nan
+
         if not capture_trades:
             return ret
         
-        if total_trades == 0:
+        if self.total_trades == 0:
             ret["Winning trades"] = np.nan
             return ret
         
@@ -290,9 +313,11 @@ class Intraday_Simulator:
                 if sell[i][1] > buy[i][1]:
                     winning += 1
 
-        ret["Winning trades"] = winning / total_trades * 100
-        return ret
-    
+        ret["Winning trades"] = winning / self.total_trades * 100
+        self.trade_winrate = ret["Winning trades"]
+        return ret  
+
+
     def plot_account_balance(self):
         """
         Plotting your account balance
@@ -303,8 +328,6 @@ class Intraday_Simulator:
         Outputs
         :N/A
         """
-        if not self.is_folder: raise Exception("Function made for more than one file")
-
         df = pd.DataFrame(self.all_returns)
         df.columns = ["Account Balance", "Net", "File Name"]
         plt.rcParams['figure.figsize'] = [10, 5]
@@ -312,7 +335,8 @@ class Intraday_Simulator:
         plt.plot(df["Account Balance"], color="royalblue", linewidth=3)
         plt.title("Account balance")
         plt.show()
-    
+
+
     def get_history(self, col_no=None):
         """
         Getting results after each day
@@ -323,8 +347,8 @@ class Intraday_Simulator:
         Outputs
         :(list of [filepath (string), account balance (float), net (float)])
         """
-        if not self.is_folder: raise Exception("Function made for more than one file")
         return self.all_returns if col_no is None else np.asarray(self.all_returns)[:, col_no].tolist() 
+
 
     def get_files(self):
         """
@@ -337,7 +361,8 @@ class Intraday_Simulator:
         :(list of string) File(s) used
         """
         return self.files
-  
+
+
     def get_all_trades(self):
         """
         Get every trade that occurred
@@ -350,8 +375,9 @@ class Intraday_Simulator:
         """
         return self.all_trades
 
+
 class StrategyPerformance:
-    def __init__(self, save_plots=False, folder_name=None):
+    def __init__(self, sim_object, save_plots=False, folder_name=None):
         """
         Priming class
 
@@ -363,6 +389,7 @@ class StrategyPerformance:
         :instance of class
         """
         self.save_plots = save_plots
+        self.sim_object = sim_object
         if save_plots:
             if folder_name is not None:
                 self.folder_name = f"Results/{folder_name}"
@@ -371,6 +398,7 @@ class StrategyPerformance:
                 self.folder_name = f"Results/Result_{folder_num}"
         
             os.mkdir(self.folder_name)
+
 
     def _get_stats(self, all_info, drawdowns=False, plot=False, text=""):
         """
@@ -405,7 +433,7 @@ class StrategyPerformance:
         stats = {}
         all_returns_array = np.array(df["Net"]).astype(np.float)
         all_account_balance_array = np.array(df["Account Balance"]).astype(np.float)
-        df["%net"] = df["Net"] / df["Account Balance"]
+        df["%net"] = df["Net"] / df["Account Balance"] # If this is 0.01 this means 1%
 
         # Location
         stats["mean"] = round(np.mean(all_returns_array), 2)
@@ -431,8 +459,9 @@ class StrategyPerformance:
         stats["kurtosis"] = df["Net"].kurtosis()
         
         # Custom
-        # Sharpe ratio = return of strategy - Risk-Free Return (S&P500 5.9%)/ std dev of strategy
-        stats["sharpe ratio"] = (stats["%mean"] * 100 / 11.9) / stats["%std dev"]
+        # Sharpe ratio = return of strategy - Risk-Free Return (S&P500 daily mean)/ std dev of strategy
+        stats["sharpe ratio"] = (stats["%mean"] - 0.00035778283092856517) / stats["%std dev"]
+        stats["Annualized sharpe ratio"] = math.sqrt(252) * stats["sharpe ratio"]
 
         # Time = (252 trading days) × (6.5 trading hours per trading day) = 1,638
         # stats["annualized sharpe ratio"] = (stats["mean"] * 12) / stats["std dev"]
@@ -475,7 +504,7 @@ class StrategyPerformance:
                 vals = tmp[index], tmp[index + 1]
 
             stats["max drawdown length"] = [vals]
-    
+
             MDDL_horizontal_x = vals
             MDDL_horizontal_y = np.repeat(df.iloc[tmp[index]]["Account Balance"], 2)
             
@@ -502,6 +531,7 @@ class StrategyPerformance:
 
         return stats
 
+
     def get_outliers(self, all_info):
         """
         Separate using z-score separate the outliers from the normal data
@@ -514,6 +544,7 @@ class StrategyPerformance:
         :(list of lists) normal data
         """
         stats = StrategyPerformance._get_stats(self, all_info, drawdowns=False, plot=False)
+
         outliers = []
         normal = []
 
@@ -526,7 +557,8 @@ class StrategyPerformance:
         
         return outliers, normal
 
-    def find_outliers(self, sim_object, drawdowns=True):
+
+    def find_outliers(self, drawdowns=True):
         """
         Gets the sim_object, looks through for any outliers;
         If there are any outliers, remove them and adjust future numbers accordingly and plot
@@ -537,7 +569,7 @@ class StrategyPerformance:
         Outputs
         :N/A
         """
-        self.data = sim_object.get_history()
+        self.data = self.sim_object.get_history()
         self.outliers, _ = StrategyPerformance.get_outliers(self, self.data)
 
         # Basically after taking out the outlier I have to adjust the future account_balances accordingly 
@@ -550,7 +582,11 @@ class StrategyPerformance:
         for i in range(1, len(data_without_outliers)):
             self.normal.append((starting_balance + cumulative_returns[i], data_without_outliers[i][1], data_without_outliers[i][-1]))
 
-        results = {"Starting Balance": sim_object.initial_account_balance}
+        results = {
+            "Starting Balance": self.sim_object.initial_account_balance,
+            "Total Trades": self.sim_object.total_trades,
+            "Trade winrate": self.sim_object.trade_winrate,
+            }
 
         if self.outliers:
             print("Outliers found")
@@ -560,31 +596,31 @@ class StrategyPerformance:
 
             print("Before removing outliers")
             results["Before"] = StrategyPerformance._get_stats(self, self.data, drawdowns=drawdowns, plot=True, text="before")
-            results["Before"]["Ending balance"] = sim_object.account_balance
+            results["Before"]["Ending balance"] = self.sim_object.account_balance
     
             print("After removing outliers")
             results["After"] = StrategyPerformance._get_stats(self, self.normal, drawdowns=drawdowns, plot=True, text="after")
             results["After"]["Ending balance"] = self.normal[-1][0]
             print(f"Before: {results['Before']}")
-            print()
             print(f"After: {results['After']}")
+
 
         else:
             print("No outliers")
             results = StrategyPerformance._get_stats(self, self.data, drawdowns=drawdowns, plot=True)
-            results["Starting Balance"] = sim_object.initial_account_balance
-            results["Ending balance"] = sim_object.account_balance
+            results["Starting Balance"] = self.sim_object.initial_account_balance
+            results["Ending balance"] = self.sim_object.account_balance
             print(results)
 
         if self.save_plots:
             inputs = {
-                "Filepath": sim_object.filepath,
-                "Filtered": sim_object.filtered,
-                "Cyclic": sim_object.cycled,
-                "Algorithm number": sim_object.algos.num,
-                "Account Balance": sim_object.initial_account_balance,
-                "Trade Method": sim_object.trade_method,
-                "Trade Cost": sim_object.trade_cost
+                "Filepath": self.sim_object.filepath,
+                "Filtered": self.sim_object.filtered,
+                "Cyclic": self.sim_object.cycled,
+                "Algorithm number": self.sim_object.algos.num,
+                "Account Balance": self.sim_object.initial_account_balance,
+                "Trade Method": self.sim_object.trade_method,
+                "Trade Cost": self.sim_object.trade_cost
             }
 
             with open(f"{self.folder_name}/input.json", "w+") as f:
@@ -593,7 +629,8 @@ class StrategyPerformance:
             with open(f"{self.folder_name}/output.json", "w+") as f:
                 json.dump(results, f, indent=4, cls=NpEncoder)
 
-    def remove_outliers(self, sim_object):
+
+    def remove_outliers(self):
         """
         Removes outliers from original list
 
@@ -603,33 +640,63 @@ class StrategyPerformance:
         Outputs
         :N/A
         """
-        sim_object.all_returns = self.normal
-    
-    def _plot_trades(self, trades, FIGSIZE=[20, 10]):
+        self.sim_object.all_returns = self.normal
+
+
+    def _plot_trades(self, trades, FIGSIZE=[20, 10], custom_indicators=[]):
         """
         Plot certain trading days
 
         Inputs
         :trades (list) trading activity of a single day
         :FIGZISE (list of int) size of charts, in inches (i.e. [20, 10])
+        :custom_indicators (list of tuples) function with followed by arguments (i.e. (ta.sma, ))
 
         Outputs
         :N/A
         """
         df = pd.read_csv(trades[0], index_col=0)
         df.index = pd.to_datetime(df.index)
-        df = df.between_time("09:30:00", "16:00:00")
+        if self.sim_object.intra:
+            df = df.between_time("09:30:00", "16:00:00")
+
         df.columns = list(map(str.lower, list(df.columns)))
     
         buy_x = []
         sell_x = []
 
         for trade in trades[1:]:
-            if trade[0] == "B": buy_x.append(df.index[trade[-1]])
-            if trade[0] == "S": sell_x.append(df.index[trade[-1]])
+            if trade[0] == "B":
+                buy_x.append(df.index[trade[-1]])
+
+            if trade[0] == "S":
+                sell_x.append(df.index[trade[-1]])
         
         plt.rcParams['figure.figsize'] = FIGSIZE
-        plt.plot(df["close"], "royalblue", linewidth=2)
+        # plt.yscale("log")
+
+        # TESTING
+        # plt.plot(df["close"], "royalblue", linewidth=2)
+
+        for index, row in df.iterrows():
+            plt.plot([index] * 2, [row["low"], row["high"]], color="black", label='_nolegend_')
+            if row.open > row.close:
+                plt.plot([index] * 2, [row["open"], row["close"]], color="red", linewidth=2, label='_nolegend_')
+            else:
+                plt.plot([index] * 2, [row["close"], row["open"]], color="green", linewidth=2, label='_nolegend_')
+
+        legend_data = []
+
+        for i in range(len(custom_indicators)):
+            tmp = []
+            for name in custom_indicators[i][1]:
+                tmp.append(df[name])
+
+            data = custom_indicators[i][0](*tmp, *custom_indicators[i][2:], linewidth=2)
+            plt.plot(data, linewidth=1)
+            legend_data.append(f"{custom_indicators[i][0].__name__} {custom_indicators[i][1:]}")
+
+        plt.legend(legend_data, loc=2)
 
         for x in buy_x:
             plt.axvline(x, color="green")
@@ -637,13 +704,15 @@ class StrategyPerformance:
             plt.axvline(x, color="red")
         
         tmp = df.iloc[::50].index
-        plt.xticks(tmp, tmp, rotation=45)
+        plt.xticks(tmp, tmp, rotation=0)
+        plt.title(trades[0].split("/")[-1].split(".")[0])
 
         if self.save_plots:
             plt.savefig(f"{self.folder_name}/{trades[0].split('.')[0].split('/')[-1]}")
         plt.show()
 
-    def check_outliers(self, sim_object, customs=[]):
+
+    def check_outliers(self, customs=[], custom_indicators=[], ):
         """
         Plot trading days for outliers to ensure no funky activity
 
@@ -651,25 +720,32 @@ class StrategyPerformance:
         :sim_object (Intraday_Simulator)
         :customs (list of int) if number is passed through then it
             will output that trading day's activity (can also pass in "all" to get every trading day)
+        :custom_indicators (list of int) pass a function, df columns and any other arguments in order
+            e.g check_outliers(custom_indicators=[(ta.ema, ["close"], 20), (ta.sma, ["close"], 50)])
 
         Outputs
         :N/A
         """
-        trades = sim_object.get_all_trades()
+        trades = self.sim_object.get_all_trades()
         customs = [i for i in range(len(trades))] if customs == "all" else customs
-        FIGSIZE = [20, 10] if not customs else [10, 5]
-        plt.xlabel("Time")
-        plt.ylabel("Stock price")
-        for outlier in self.outliers:
-            self._plot_trades(trades[self.data.index(outlier) - 1], FIGSIZE)
+        FIGSIZE = [20, 10]
 
-        if customs: print("CUSTOM")
+        if self.outliers or customs:
+            plt.xlabel("Time")
+            plt.ylabel("Stock price")
+
+        for outlier in self.outliers:
+            self._plot_trades(trades[self.data.index(outlier) - 1], FIGSIZE, custom_indicators=custom_indicators)
+
+        if customs:
+            print("CUSTOM")
 
         for custom in customs:
             print(custom)
-            self._plot_trades(trades[custom], FIGSIZE)
-    
-    def returns_histogram(self, sim_object, bins_algo="total length", bins_num=None):
+            self._plot_trades(trades[custom], FIGSIZE, custom_indicators=custom_indicators)
+
+
+    def returns_histogram(self, bins_algo="total length", bins_num=None):
         """
         Create histogram for Amount of returns vs Returns
 
@@ -682,7 +758,7 @@ class StrategyPerformance:
         """
         plt.xlabel("Returns")
         plt.ylabel("Amount of returns")
-        returns = [i[1] for i in sim_object.get_history()]
+        returns = [i[1] for i in self.sim_object.get_history()]
         if bins_num is None:
             if bins_algo == "total length": bins_algo = int(round(1 + 3.322 * math.log2(len(returns)), 0))
             if bins_algo == "range": bins_algo = int((max(returns) - min(returns)) /  len(returns))
@@ -694,8 +770,9 @@ class StrategyPerformance:
         if self.save_plots:
             plt.savefig(f"{self.folder_name}/returns_histogram")
         plt.show()
-    
-    def price_to_returns(self, sim_object):
+
+
+    def price_to_returns(self):
         """
         Create scatter plot for Open of each stock vs Returns
 
@@ -707,7 +784,7 @@ class StrategyPerformance:
         """
         quick = []
         # OHLCV
-        for i in sim_object.get_history()[1:]:
+        for i in self.sim_object.get_history()[1:]:
             tmp = []
             df = pd.read_csv(i[-1]).iloc[0]
             tmp.append(df["Open"])
@@ -738,8 +815,9 @@ class StrategyPerformance:
         if self.save_plots:
             plt.savefig(f"{self.folder_name}/price_vs_returns")
         plt.show()
-    
-    def returns_to_trades(self, sim_object, returns_line=None):
+
+
+    def returns_to_trades(self, returns_line=None):
         """
         Create scatter plot for Returns vs Trades count
 
@@ -750,10 +828,10 @@ class StrategyPerformance:
         Outputs
         :N/A
         """
-        returns = [i[1] for i in sim_object.get_history()[1:]]
+        returns = [i[1] for i in self.sim_object.get_history()[1:]]
         trades = []
 
-        for i in sim_object.get_all_trades():
+        for i in self.sim_object.get_all_trades():
             trades.append(len(i[1:]) / 2)
 
         plt.xlabel("Trades")
@@ -765,3 +843,19 @@ class StrategyPerformance:
         if self.save_plots:
             plt.savefig(f"{self.folder_name}/returns_vs_trades")
         plt.show()
+
+
+
+if __name__ == "__main__":
+    class Algos:
+        def __init__(self): return None
+        def setup0(self, df): return df
+        def algo0(self, **var): return 1
+        def send_setup(self, df): return self.setup0(df)
+        def send_algo(self, **var): return self.algo0(**var)
+
+    Sim = Intraday_Simulator("Data/intra_all_6", granularity="minute")
+    Sim.filter_files(cycle=True)
+
+    Sim.setup(account_balance=5000, trade_method="fixed", trade_cost=2, limit=-1, algorithm=Algos())
+    Sim.run(warnings=False, verbose=False, progress=True, capture_trades=True, slippage=0)
