@@ -19,7 +19,7 @@ Where _2_ is the algos number (i.e. if _2_ algos have been created, the new func
 ___
 Within the setup function you can add any new columns (i.e. moving average) to the [pandas](https://github.com/pandas-dev/pandas) DataFrame to be used later in the algorithm. This is purely for decreasing processing and time during runtime. The function ***must*** return a DataFrame back.
 
-Within the algo function is where the actual algorithm resides. It should return a class from [Engine/Orders.py](Engine/Orders.py). An example on how to make and use is should in [Orders.py](Engine/Orders.py) and the [notebook/file](Client.ipynb) respectively.
+Within the algo function is where the actual algorithm resides. It should return a class from [Engine/Orders.py](Engine/Orders.py). An example on how to make and use the classes should be in [Orders.py](Engine/Orders.py) and the [notebook/file](Client.ipynb) respectively.
 
 An example (Golden Crossover) is provided within the [notebook/file](Client.ipynb) itself.
 
