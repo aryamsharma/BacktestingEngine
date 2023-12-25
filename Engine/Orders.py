@@ -12,7 +12,7 @@ class MKT:
         self.order_type = "MKT"
         assert type(shares) is int, "Shares is a non-integer value"
         self.requested_shares = shares
-    
+
     def _execute(self, broker_data, current_tick):
 
         buying = self.requested_shares > 0
@@ -41,13 +41,13 @@ class LMT:
         assert type(shares) is int, "Shares is a non-integer value"
         self.requested_shares = shares
         self.requested_price = price
-    
+
     def _execute(self, broker_data, current_tick):
         buying = self.requested_shares > 0
 
         if self.requested_price is None:
             return {"return": False, "code": 2}
-        
+
         close_price = current_tick["close"]
         shares_cost = close_price * self.requested_shares
         shares_cost += broker_data.trade_cost
@@ -67,7 +67,7 @@ class LMT:
                 "return": True,
                 "shares": self.requested_shares,
                 "price": close_price}
-        
+
         return {"return": False}
 
 class TRAIL_LMT:
@@ -123,7 +123,7 @@ class ADAPT:
         self.following = following
         # go is under or above
         self.go_under = go_under
-    
+
     def _execute(self, broker_data, current_tick):
         price = current_tick["close"]
         follow_price = current_tick[self.following]
@@ -131,11 +131,11 @@ class ADAPT:
         if self.go_under and price < follow_price:
             mkt = MKT(self.requested_shares)
             return mkt._execute(broker_data, current_tick)
-        
+
         if not self.go_under and price > follow_price:
             mkt = MKT(self.requested_shares)
             return mkt._execute(broker_data, current_tick)
-        
+
         return {"return": False}
 
 class example:
@@ -147,6 +147,5 @@ class example:
         return {"return": False}
         # if the return is False you may add an extra field called code (look in the lookup table to see error types)
         return {"return": False, "code": int}
-        # if the return is True then the fields for shares and price bought must be there and be calculated 
+        # if the return is True then the fields for shares and price bought must be there and be calculated
         return {"return": True, "shares": int, "price": float}
-    

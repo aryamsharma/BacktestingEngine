@@ -3,7 +3,7 @@ from Engine.Orders import MKT
 
 class Message:
     """
-    Quick way to print out warnings/information    
+    Quick way to print out warnings/information
     """
     def __init__(self):
         """
@@ -62,7 +62,7 @@ class Broker:
 
         self.algorithm = algorithm
         self.exchange_feed = exchange_feed
-        
+
         self.iter = self.exchange_feed.setup_data(algorithm=self.algorithm)
 
 
@@ -76,7 +76,7 @@ class Broker:
         :shares (int)
             Amount of shares left
         """
-        to_delete = [] 
+        to_delete = []
         for count, order in enumerate(self.orders):
             if order.requested_shares == 0:
                 self.alerts.warning(self.warnings, 2)
@@ -89,7 +89,7 @@ class Broker:
                 self.alerts.info(self.info, f"{order.order_type} Order filled ({values['shares']} / {values['price']})")
                 self.bought_market_value = values["shares"] * values["price"]
                 self.trades.append((values["shares"], values["price"], current_tick["step"]))
-            
+
             if values.get("code", None) is not None:
                 self.alerts.warning(
                     self.warnings and not values["return"], values["code"])
@@ -102,7 +102,7 @@ class Broker:
 
         for i in to_delete[::-1]:
             del self.orders[i]
-        
+
         return self.shares
 
 
@@ -124,14 +124,14 @@ class Broker:
             self.alerts.warning(self.warnings, 3, f"{self.shares} Share(s)")
             self.orders = [MKT(-self.shares)]
             self._order_checks(self.last_info["current_tick"])
-            
+
             if self.shares > 0:
                 flag, code = False, 3
             elif self.shares < 0:
                 flag, code = False, 4
             else:
                 flag, code = True, 0
-        
+
         self.alerts.info(self.info, f"{self.last_info['filepath']} end")
         self.states.append((tmp, self.available_cash, (self.last_info['filepath'], *self.trades)))
         self.trades = []

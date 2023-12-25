@@ -15,7 +15,7 @@ class Exchange:
         :slippage (int); 1
             Delta between requesting an order and the order being active
         :lazy_loading (bool); None
-            If lazy loading is turned on the the data will be produced lazily, with the trade off of being /slow/, otherwise it will generate all the data at the start but will be extra fast (~97.3% faster) 
+            If lazy loading is turned on the the data will be produced lazily, with the trade off of being /slow/, otherwise it will generate all the data at the start but will be extra fast (~97.3% faster)
         :lazy_loading_limit (bool); 24
             If lazy loading is None, then if there are more files that the limit the program will generate it lazily other it'll be generate at start
         """
@@ -33,7 +33,7 @@ class Exchange:
 
         self.files = [
             f"{filepath}/{file}" for file in os.listdir(filepath) if file.endswith(".csv")]
-        
+
         if sorting:
             self.files = sorted(self.files, key=lambda x: x.split("_")[-1])
 
@@ -108,7 +108,7 @@ class Exchange:
         total_length = len(self.dfs)
         count = 0
 
-        for df, df_dict, file in self.dfs:  
+        for df, df_dict, file in self.dfs:
             total_steps = df.shape[0] - self.slippage
             count += 1
             for step in range(0, total_steps):

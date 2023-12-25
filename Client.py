@@ -11,7 +11,7 @@ class Algos:
         self.num = num
         self.__setup_func = getattr(self, f'setup{num}')
         self.__algo_func = getattr(self, f'algo{num}')
-    
+
     def setup0(self, df):
         return df
 
@@ -23,26 +23,26 @@ class Algos:
         df["long_rolling"] = ta.sma(df["close"], 200)
         self.bought = False
         return df
-    
+
     def algo1(self, **var):
         """
         Golden Crossover
         """
         if var["new_stock"]:
             self.bought = False
-        
+
         if var["shares"] > 0 or self.bought:
             return None
 
         row = var["current_tick"]
         rol_small, rol_long = row["small_rolling"], row["long_rolling"]
-        
+
         # Buy
         if var["shares"] <= 0 and rol_small > rol_long:
             # -1 for good measure
             shares = int((var["balance"] // var["price"]) - 1)
             buy_order = LMT(shares, var["price"])
-            
+
             # Risk managment
             risk = var["initial_day_balance"] * 0.02
             sell_order = TRAIL_LMT(shares, price_delta=-(risk / shares))
@@ -50,7 +50,6 @@ class Algos:
             return [buy_order, sell_order]
 
         return None
-            
 
 
     def send_setup(self, df):
@@ -77,7 +76,7 @@ class Algos:
         :balance (float)              Cash spendable
         :bought_market_value (float)  market_value at time of last buy (shares * price)
         :market_value(float)          Shares * Price
-        :shares (integer)             Position    
+        :shares (integer)             Position
         :new_stock (bool)             True if it is the start of a file
 
         Output

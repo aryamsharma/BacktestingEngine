@@ -14,7 +14,7 @@ class Statistics:
         self.states_df["initial"] = self.states[:, 0]
         self.states_df["end"] = self.states[:, 1]
 
-        self.states_df = self.states_df.apply(pd.to_numeric) 
+        self.states_df = self.states_df.apply(pd.to_numeric)
 
         self.states_df["net"] = self.states_df["end"] - self.states_df["initial"]
 
@@ -99,7 +99,7 @@ class Statistics:
 
             plt.legend(loc=1)
             plt.show()
-    
+
     def get_statistics(self):
         """
         Get extra statistics
@@ -116,7 +116,7 @@ class Statistics:
             stats[key] = round(stats[key], 4)
 
         return stats
-    
+
     def get_outliers(self):
         """
         Find outliers based on z-score
@@ -173,7 +173,6 @@ class Statistics:
             index = list(np.where(tmp_diff == largest))[-1][-1]
             vals = tmp[index], tmp[index + 1]
 
-        
         drawdowns["mddl"] = vals[1] - vals[0]
         drawdowns["mddl_h_x"] = vals
         drawdowns["mddl_h_y"] = tuple(np.repeat(
