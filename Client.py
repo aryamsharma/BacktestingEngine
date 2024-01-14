@@ -115,7 +115,7 @@ results = broker.get_results()
 
 print("BASIC RESULTS")
 print_output(results)
-
+"""
 statistics = Statistics(broker)
 
 print("EXTRA INFORMATION")
@@ -126,3 +126,4 @@ statistics.cash_graph("linear")
 outliers = statistics.get_outliers()
 print(outliers)
 statistics.plot_sub_file_trades(outliers, include=["small_rolling", "long_rolling"])
+"""
