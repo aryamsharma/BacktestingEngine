@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# My custom ones again
+Data/*
+Data/!intraday_trading

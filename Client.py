@@ -98,7 +98,7 @@ exchange_feed = Exchange(
     filepath=filepath,
     limit=-1,
     lazy_loading=True,
-    lazy_loading_limit=5,
+    lazy_loading_limit=20,
     slippage=1)
 
 broker = Broker(
@@ -115,7 +115,7 @@ results = broker.get_results()
 
 print("BASIC RESULTS")
 print_output(results)
-"""
+
 statistics = Statistics(broker)
 
 print("EXTRA INFORMATION")
@@ -126,4 +126,3 @@ statistics.cash_graph("linear")
 outliers = statistics.get_outliers()
 print(outliers)
 statistics.plot_sub_file_trades(outliers, include=["small_rolling", "long_rolling"])
-"""
