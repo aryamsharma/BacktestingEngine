@@ -1,7 +1,7 @@
-from Engine.Broker import Broker
-from Engine.Orders import MKT, LMT, TRAIL_LMT, ADAPT
-from Engine.Statistics import Statistics
-from Engine.Exchange import Exchange
+from Engine.Backtesting.Broker import Broker
+from Engine.Backtesting.Orders import MKT, LMT, TRAIL_LMT, ADAPT
+from Engine.Backtesting.Statistics import Statistics
+from Engine.Backtesting.Exchange import Exchange
 
 import pandas as pd
 import pandas_ta as ta
@@ -69,7 +69,7 @@ class Algos:
         Get values from the environment
 
         Inputs (var)
-        :df (pd.DataFrame)            The DataFrame containing all values upto current bar
+        :df (pd.DataFrame)            The DataFrame containing all values up to the current bar
         :current_tick (dict)          Current bar and it's fields
         :price (float)                'close' field from current bar in df
         :initial_day_balance (float)  Money in the account at the beginning of the day
@@ -98,7 +98,7 @@ exchange_feed = Exchange(
     filepath=filepath,
     limit=-1,
     lazy_loading=True,
-    lazy_loading_limit=20,
+    lazy_loading_limit=5,
     slippage=1)
 
 broker = Broker(
@@ -124,5 +124,8 @@ print_output(statistics.get_statistics())
 statistics.cash_graph("linear")
 
 outliers = statistics.get_outliers()
+
 print(outliers)
-statistics.plot_sub_file_trades(outliers, include=["small_rolling", "long_rolling"])
+statistics.plot_sub_file_trades(
+    outliers,
+    include=["small_rolling", "long_rolling"])
