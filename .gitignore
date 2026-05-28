@@ -131,4 +131,3 @@ dmypy.json
 # My custom ones again
 Data/*
 Data/!intraday_trading
-BTE_env/*

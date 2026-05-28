@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from string import ascii_uppercase
+from itertools import chain
 
 def update_quotes(filepath, update=True):
     if not update:
@@ -52,3 +53,58 @@ def read_quotes(filename):
     with open(filename) as f:
         tickers = [line.split(",")[0] for line in f.readlines()]
     return tickers
+
+#
+
+def print_dates(dates):
+    for date, tickers in dates.items():
+        print(f"{date}: {tickers}")
+
+def remove_downloaded_files(current_files, new):
+    converted_current_files = {}
+
+    for ticker_file in current_files:
+        date = ticker_file[-14:-4]
+        ticker = ticker_file.split("_")[0]
+
+        if converted_current_files.get(date, None) is None:
+            converted_current_files[date] = [ticker]
+            continue
+        converted_current_files[date] += [ticker]
+
+    current_files_list = [
+        [(date, ticker) for ticker in tickers] for date, tickers in converted_current_files.items()
+    ]
+    new_files_list = [
+        [(date, ticker) for ticker in tickers] for date, tickers in new.items()
+    ]
+
+    current_files_list = list(chain.from_iterable(current_files_list))
+    new_files_list = list(chain.from_iterable(new_files_list))
+
+    file_diff = [
+        pair for pair in new_files_list if pair not in current_files_list
+    ]
+
+    final = {}
+
+    for date, ticker in file_diff:
+        if final.get(date, None) is None:
+            final[date] = [ticker]
+            continue
+
+        final[date] += [ticker]
+
+    return final
+
+def parse_dates(all_dates, ticker_dates, ticker_file):
+    for date in ticker_dates:
+        if date is None:
+            continue
+
+        if all_dates.get(date, None) is None:
+            all_dates[date] = [ticker_file[:-4]]
+            continue
+        all_dates[date] += [ticker_file[:-4]]
+
+    return all_dates
