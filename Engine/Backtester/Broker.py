@@ -55,6 +55,9 @@ class Broker:
 
         self.iter = self.exchange_feed.setup_data(algorithm=self.algorithm)
 
+    def run(self):
+        self.simulate()
+
 
     def _order_checks(self, current_tick):
         """
@@ -179,7 +182,7 @@ class Broker:
             current_tick = info["current_tick"]
             price = current_tick["close"]
 
-            current_order = self.algorithm.send_algo(
+            current_order = self.algorithm.on_bar(
                 current_tick=current_tick,
                 price=price,
                 initial_day_balance=self.initial_day_balance,

@@ -1,29 +1,103 @@
 # BacktestingEngine
-## Description
-___
-This BacktestingEngine allows a trader to program their own ideas with ease. Within the [notebook/file](Client.ipynb), serveral ideas can be programmed and tested on the spot. After the testing, serveral statiscal analysis tools from the [BacktestingEngine](BacktestingEngine.py) can be used to determine the effectiveness.
-## Requirements
-python >= 3.7
 
-Download all python packages within [requirements.txt](requirements.txt)
-## Usage
-___
-To test out a new algorithm head to the [notebook/file](Client.ipynb) and within the **Algos** class create two new functions;
+A unified backtesting and paper-trading engine for stock market strategies. Switch between modes by changing a single constant.
+
+## Quick Start
+
 ```python
-def setup2(self, df):
-    return df
-def algo2(self, **var):
-    return 0
+from Engine.Core.EngineFactory import create, Mode
+from Engine.Core.Strategy import Strategy
+
+class MyStrategy(Strategy):
+    def setup(self, df):
+        df["sma"] = df["close"].rolling(20).mean()
+        return df
+
+    def on_bar(self, **kwargs):
+        # kwargs: current_tick, price, balance, shares, ...
+        return None  # or a list of Order objects
+
+engine = create(Mode.BACKTEST, MyStrategy(), {
+    "data_path": "Data/intraday_trading",
+    "cash": 10000,
+    "trade_cost": 2,
+    "limit": 10,
+})
+engine.run()
+print(engine.get_results())
 ```
-Where _2_ is the algos number (i.e. if _2_ algos have been created, the new functions will end with _3_).
-___
-Within the setup function you can add any new columns (i.e. moving average) to the [pandas](https://github.com/pandas-dev/pandas) DataFrame to be used later in the algorithm. This is purely for decreasing processing and time during runtime. The function ***must*** return a DataFrame back.
 
-Within the algo function is where the actual algorithm resides. It should return a class from [Engine/Orders.py](Engine/Orders.py). An example on how to make and use the classes should be in [Orders.py](Engine/Orders.py) and the [notebook/file](Client.ipynb) respectively.
+## Modes
 
-An example (Golden Crossover) is provided within the [notebook/file](Client.ipynb) itself.
+| Mode | Class | Description |
+|------|-------|-------------|
+| `Mode.BACKTEST` | `Broker` | Historical simulation via CSV data |
+| `Mode.PAPER` | `PaperTradingEngine` | Live paper trading via IBKR TWS API |
 
-## Issues
-1. Drawdown calculations are wrong, but good enough for a rough estimate.
+Switch modes without changing strategy code:
+
+```python
+engine = create(Mode.PAPER, MyStrategy(), {
+    "symbols": ["SPY", "AAPL"],
+    "cash": 10000,
+    "host": "127.0.0.1",
+    "port": 7497,
+})
+engine.run()
+```
+
+## Writing a Strategy
+
+Inherit from `Strategy` (in `Engine/Core/Strategy.py`) and implement:
+
+- **`setup(self, df)`** — add indicators/columns to the DataFrame before the run
+- **`on_bar(self, **kwargs)`** — called on every bar; return an `Order` or list of `Order`s, or `None`
+- **`on_start_of_day(self)`** — (optional) called at the start of each trading day
+- **`on_end_of_day(self)`** — (optional) called at the end of each trading day
+
+### Using the Notebook
+
+Open `Backtester.ipynb` and write strategies in the `Algos` class. Numbered methods (`setup1`, `algo1`, `setup2`, `algo2`, ...) are dispatched automatically:
+
+```python
+class Algos(Strategy):
+    def setup(self, df):
+        return self.__setup_func(df)
+
+    def on_bar(self, **kwargs):
+        return self.__on_bar_func(**kwargs)
+
+    def setup1(self, df):
+        df["sma"] = ta.sma(df["close"], 20)
+        return df
+
+    def algo1(self, **var):
+        # Golden Cross logic
+        ...
+        return [buy_order, sell_order]
+```
+
+## Order Types
+
+Defined in `Engine/Backtester/Orders.py`:
+
+| Class | Description |
+|-------|-------------|
+| `MKT(shares)` | Market order, fills immediately |
+| `LMT(shares, price)` | Limit order |
+| `TRAIL_LMT(shares, percentage_delta\|price_delta)` | Trailing stop |
+| `ADAPT(shares, following, go_under)` | Adaptive to a column value |
+
+## Running Tests
+
+```bash
+python -m pytest tests/
+```
+
+## Requirements
+
+Python >= 3.7 + packages in `requirements.txt` (pandas, numpy, matplotlib, yfinance, ibapi).
+
 ## License
-[GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/)
+
+GNU GPLv3

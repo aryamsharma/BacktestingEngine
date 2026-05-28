@@ -69,7 +69,7 @@ class Exchange:
                 self.total_files -= 1
                 continue
 
-            modified_df = algorithm.send_setup(df)
+            modified_df = algorithm.setup(df)
 
             step_indexed = df.copy()
             step_indexed["step"] = np.arange(step_indexed.shape[0])
