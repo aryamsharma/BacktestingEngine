@@ -143,6 +143,7 @@ class IBapi(EWrapper, EClient):
 
 	def connectAck(self):
 		self.interface.connected = True
+		self.interface.connected_event.set()
 
 
 	def nextValidId(self, orderId):
@@ -168,16 +169,16 @@ class IBapi(EWrapper, EClient):
 class TradingInterface:
 	def __init__(self):
 		self.connected = False
+		self.connected_event = threading.Event()
 		self.validID = -1
 
 		self.ib = IBapi(self)
 		ib_thread = threading.Thread(target=self.run_api, daemon=True)
+		ib_thread.start()
 
 		if not self.establish_connection():
 			self.ib.disconnect()
-			exit()
-
-		ib_thread.start()
+			sys.exit()
 
 
 	def run_api(self):
@@ -186,12 +187,12 @@ class TradingInterface:
 
 	def establish_connection(self, retry=10):
 		for i in range(retry):
+			self.connected_event.clear()
 			self.ib.connect('127.0.0.1', 7497, 1)
-			if self.connected:
-				time.sleep(2)
+			if self.connected_event.wait(timeout=2):
+				time.sleep(0.5)
 				return True
 			print(f"Establishing connection {i + 1}/{retry}")
-			time.sleep(i + 1)
 
 		return False
 

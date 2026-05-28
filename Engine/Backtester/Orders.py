@@ -14,15 +14,17 @@ class MKT:
         self.requested_shares = shares
 
     def _execute(self, broker_data, current_tick):
-
         buying = self.requested_shares > 0
+        fill_price = current_tick["close"]
 
-        # The punishment for ever using a MKT because these are risky even though they are faster
-        shares_cost = current_tick["high"] * self.requested_shares
+        shares_cost = fill_price * self.requested_shares
         shares_cost += broker_data.trade_cost
 
-        if buying and shares_cost > broker_data.available_cash:
-            return {"return": False, "code": 1}
+        if buying:
+            if shares_cost > broker_data.available_cash:
+                return {"return": False, "code": 1}
+        elif -self.requested_shares > broker_data.shares:
+            return {"return": False, "code": 5}
 
         broker_data.available_cash -= shares_cost
         broker_data.shares += self.requested_shares
@@ -30,7 +32,7 @@ class MKT:
         return {
             "return": True,
             "shares": self.requested_shares,
-            "price": (shares_cost - broker_data.trade_cost) / self.requested_shares}
+            "price": fill_price}
 
 class LMT:
     """
@@ -61,7 +63,7 @@ class LMT:
                 "price": close_price}
 
         if not buying and close_price >= self.requested_price:
-            broker_data.available_cash += shares_cost
+            broker_data.available_cash -= shares_cost
             broker_data.shares += self.requested_shares
             return {
                 "return": True,

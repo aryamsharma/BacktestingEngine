@@ -2,7 +2,6 @@ import sys
 import time
 import threading
 
-from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
 
 from ibapi.client import EClient
@@ -84,11 +83,11 @@ class TradingInterface:
 
         for i in range(retry):
             if self.returned:
-                break
+                return self.validID
             print(f"{i + 1}/{retry}")
             time.sleep(i * 0.05)
-        
-        return self.validID
+
+        raise ConnectionError("Failed to obtain a valid order ID from TWS")
 
     def disconnect(self):
         self.ib.disconnect()

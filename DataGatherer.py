@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import datetime, timedelta
 
 from numpy import int16
@@ -43,7 +44,7 @@ def filter3(df, ticker):
 
 	if dates.any():
 		try:
-			edates = yf.Ticker(ticker[:-4]).get_earnings_dates(limit=8)
+			edates = yf.Ticker(os.path.splitext(ticker)[0]).get_earnings_dates(limit=8)
 		except Exception as e:
 			print(f"Error: {e}")
 			return []
@@ -92,7 +93,7 @@ if __name__ == "__main__":
 			os.makedirs("Data/stock_screener/")
 
 		quotes = ts.update_quotes(
-			f"{filepath}NYSE_quotes.txt", update=True)
+			f"{filepath}NYSE_quotes.csv", update=True)
 
 	if update_daily_data:
 		import Engine.DataGatherer.download_ibkr_data as ibkr
@@ -146,11 +147,11 @@ if __name__ == "__main__":
 
 		if chosen_dates_count == 0:
 			print("Chosen dates is zero, exiting")
-			exit()
+			sys.exit()
 
 		ret = input("Download the chosen dates? (y/n): ")
 		if ret.lower() != "y":
-			exit()
+			sys.exit()
 
 		folder = "Data/trading_days_ML/"
 		if not os.path.isdir(folder):

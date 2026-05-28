@@ -1,3 +1,4 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 from string import ascii_uppercase
@@ -34,8 +35,14 @@ def scrape_quotes(letter):
     return quotes
 
 def get_rows(link):
-    soup = BeautifulSoup(requests.get(link).text, features="lxml")
-    return soup.find('table', attrs={'class': "quotes"}).find_all('tr')
+    try:
+        response = requests.get(link, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, features="lxml")
+        return soup.find('table', attrs={'class': "quotes"}).find_all('tr')
+    except (requests.RequestException, AttributeError) as e:
+        print(f"[WARNING] Failed to fetch {link}: {e}")
+        return []
 
 def write_quotes(filename, quotes):
     written_quotes = []
@@ -64,8 +71,9 @@ def remove_downloaded_files(current_files, new):
     converted_current_files = {}
 
     for ticker_file in current_files:
-        date = ticker_file[-14:-4]
-        ticker = ticker_file.split("_")[0]
+        stem = os.path.splitext(ticker_file)[0]
+        date = stem.split("_")[-1]
+        ticker = stem.split("_")[0]
 
         if converted_current_files.get(date, None) is None:
             converted_current_files[date] = [ticker]
@@ -98,13 +106,14 @@ def remove_downloaded_files(current_files, new):
     return final
 
 def parse_dates(all_dates, ticker_dates, ticker_file):
+    ticker = os.path.splitext(ticker_file)[0]
     for date in ticker_dates:
         if date is None:
             continue
 
         if all_dates.get(date, None) is None:
-            all_dates[date] = [ticker_file[:-4]]
+            all_dates[date] = [ticker]
             continue
-        all_dates[date] += [ticker_file[:-4]]
+        all_dates[date] += [ticker]
 
     return all_dates

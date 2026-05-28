@@ -3,11 +3,15 @@ import numpy as np
 import pandas as pd
 
 class Statistics:
-    def __init__(self, broker_obj):
+    def __init__(self, broker_obj, risk_free_rate=0.0):
         """
         Parameter(s)
         :broker_obj (Broker obj)
+        :risk_free_rate (float); 0.0
+            Annual risk-free rate (e.g. 0.05 for 5%) used in Sortino calculation
         """
+        self.initial_cash = broker_obj.initial_cash
+        self.risk_free_rate = risk_free_rate
         self.states = np.array(broker_obj.states, dtype=object)
         self.states_df = pd.DataFrame(columns=["initial", "end"])
 
@@ -32,7 +36,7 @@ class Statistics:
         plt.ylabel("Account Balance")
         plt.title("Equity")
 
-        plt.plot(np.append([5000], self.states_df["end"]), color="royalblue", linewidth=3, alpha=1)
+        plt.plot(np.append([self.initial_cash], self.states_df["end"]), color="royalblue", linewidth=3, alpha=1)
 
         if drawdowns is not None:
                 plt.plot(
@@ -51,7 +55,7 @@ class Statistics:
         plt.yscale(scale)
         plt.show()
 
-    def plot_sub_file_trades(self, sub_files=[], include=[]):
+    def plot_sub_file_trades(self, sub_files=None, include=None):
         """
         Plot's certain days graph so you can see each trade individually
 
@@ -61,6 +65,9 @@ class Statistics:
         :include (list of string)
             which column to show on each graph, leave list empty if nothing
         """
+        sub_files = sub_files or []
+        include = include or []
+
         for count, data in enumerate(self.sub_file_trades):
             if count not in sub_files:
                 continue
@@ -95,7 +102,6 @@ class Statistics:
             for column in df.columns:
                 if column in include:
                     plt.plot(df[column], linewidth=2, label=column, alpha=0.5)
-                    include.append(column)
 
             plt.legend(loc=1)
             plt.show()
@@ -108,8 +114,8 @@ class Statistics:
         self.states_df["%net"] = self.states_df["net"] / self.states_df["initial"]
 
         stats["%mean"] = self.states_df["%net"].mean() * 100
-        # (expected - risk free) / std of downside
-        stats["sortino"] = (stats["%mean"] - (3847 / 63000)) / self.states_df.loc[self.states_df['%net'] <= 0]["%net"].std()
+        daily_rf = ((1 + self.risk_free_rate) ** (1 / 252) - 1) * 100
+        stats["sortino"] = (stats["%mean"] - daily_rf) / self.states_df.loc[self.states_df['%net'] <= 0]["%net"].std()
 
         for key in stats.keys():
             # print(key, stats[key])
@@ -135,29 +141,29 @@ class Statistics:
 
     def get_max_drawdowns(self):
         drawdowns = {}
-        end = np.argmax((np.maximum.accumulate(self.states_df["initial"]) -
-                        self.states_df["initial"]) / np.maximum.accumulate(self.states_df["initial"]))
+        equity = self.states_df["end"]
 
-        if len(self.states_df["initial"][:end]) > 0:
-            # start of period
-            start = np.argmax(self.states_df["initial"][:end])
+        end_idx = np.argmax(
+            (np.maximum.accumulate(equity) - equity) / np.maximum.accumulate(equity)
+        )
+
+        if len(equity[:end_idx]) > 0:
+            start_idx = np.argmax(equity[:end_idx])
         else:
-            start = 0
+            start_idx = 0
 
         drawdowns["mdd"] = (
-            1 - self.states_df.iloc[end]["initial"] / self.states_df.iloc[start]["initial"]) * 100
+            1 - equity.iloc[end_idx] / equity.iloc[start_idx]
+        ) * 100
 
-        drawdowns["mdd_h_y"] = np.repeat(self.states_df.iloc[start]["initial"], 2)
-        drawdowns["mdd_h_x"] = [start, end]
+        drawdowns["mdd_h_y"] = np.repeat(equity.iloc[start_idx], 2)
+        drawdowns["mdd_h_x"] = [start_idx, end_idx]
 
-        drawdowns["mdd_v_x"] = [end, end]
-        drawdowns["mdd_v_y"] = [self.states_df.iloc[end]["initial"],
-                            self.states_df.iloc[start]["initial"]]
+        drawdowns["mdd_v_x"] = [end_idx, end_idx]
+        drawdowns["mdd_v_y"] = [equity.iloc[end_idx], equity.iloc[start_idx]]
 
-        # Max length drawdown
         self.states_df["cumulative"] = self.states_df["net"].cumsum().round(2)
         self.states_df["highvalue"] = self.states_df["cumulative"].cummax()
-
         self.states_df["drawdown"] = self.states_df["cumulative"] - self.states_df["highvalue"]
 
         tmp = self.states_df.loc[self.states_df["drawdown"] >= 0]
@@ -165,17 +171,16 @@ class Statistics:
 
         if len(tmp) == 1:
             vals = [0, 0]
-            index = 0
-
+            idx = 0
         else:
             tmp_diff = np.diff(tmp)
             largest = tmp_diff.max()
-            index = list(np.where(tmp_diff == largest))[-1][-1]
-            vals = tmp[index], tmp[index + 1]
+            idx = list(np.where(tmp_diff == largest))[-1][-1]
+            vals = tmp[idx], tmp[idx + 1]
 
         drawdowns["mddl"] = vals[1] - vals[0]
         drawdowns["mddl_h_x"] = vals
         drawdowns["mddl_h_y"] = tuple(np.repeat(
-            self.states_df.iloc[tmp[index]]["initial"], 2))
+            self.states_df.iloc[tmp[idx]]["initial"], 2))
 
         return drawdowns

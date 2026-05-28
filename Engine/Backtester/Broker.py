@@ -14,7 +14,8 @@ class Message:
             "1": "NO CASH",
             "2": "WRONG ORDER INPUTS",
             "3": "LONG SHARES EOD",
-            "4": "SHORT SHARES EOD"
+            "4": "SHORT SHARES EOD",
+            "5": "INSUFFICIENT SHARES"
         }
 
     def warning(self, condition, error_code, extra_info=""):
@@ -22,11 +23,12 @@ class Message:
             print(f"[WARNING] {self.lookup_table[str(error_code)]} {extra_info}")
 
 
-    def info(self, condition, msg, extra_info=[]):
+    def info(self, condition, msg, extra_info=None):
         if condition:
             print(f"[INFO] {msg}")
-            for info in extra_info:
-                print(info)
+            if extra_info:
+                for info in extra_info:
+                    print(info)
 
 
 class Broker:
@@ -75,7 +77,12 @@ class Broker:
 
             if values["return"]:
                 self.alerts.info(self.info, f"{order.order_type} Order filled ({values['shares']} / {values['price']})")
-                self.bought_market_value = values["shares"] * values["price"]
+                if values["shares"] > 0:
+                    self.bought_market_value += values["shares"] * values["price"]
+                elif self.bought_market_value > 0:
+                    prev_shares = self.shares - values["shares"]
+                    avg_cost = self.bought_market_value / prev_shares
+                    self.bought_market_value += values["shares"] * avg_cost
                 self.trades.append((values["shares"], values["price"], current_tick["step"]))
 
             if values.get("code", None) is not None:
@@ -152,7 +159,6 @@ class Broker:
         self.warnings = show_warnings
         self.info = show_info
         self.progress = show_progress
-        self.checking = not show_info or not show_warnings
 
         start = time.time()
         self.alerts = Message()
@@ -171,16 +177,15 @@ class Broker:
                 continue
 
             current_tick = info["current_tick"]
-            open = current_tick["close"]
+            price = current_tick["close"]
 
             current_order = self.algorithm.send_algo(
-                df=info["feed"],
                 current_tick=current_tick,
-                price=open,
+                price=price,
                 initial_day_balance=self.initial_day_balance,
                 balance=self.available_cash,
                 bought_market_value=self.bought_market_value,
-                market_value=self.shares * open,
+                market_value=self.shares * price,
                 shares=self.shares,
                 new_stock=info["new_file"])
 

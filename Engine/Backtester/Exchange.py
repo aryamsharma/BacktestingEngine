@@ -64,16 +64,18 @@ class Exchange:
             for column in df.columns:
                 df[column] = df[column].round(decimals=2)
 
-            assert len(df.index) > 0, "No rows in DataFrame"
+            if len(df.index) == 0:
+                print(f"[WARNING] Skipping empty file: {file}")
+                self.total_files -= 1
+                continue
 
             modified_df = algorithm.send_setup(df)
 
-            # Technique to make searching DataFrames even faster
-            df_unique = df
-            df["step"] = np.arange(df.shape[0])
-            df_unique.index = df_unique["step"]
-            df_dict = df_unique.to_dict(orient='index')
-            self.dfs.append((modified_df, pd.Series(df_dict), file))
+            step_indexed = df.copy()
+            step_indexed["step"] = np.arange(step_indexed.shape[0])
+            step_indexed.index = step_indexed["step"]
+            df_dict = step_indexed.to_dict(orient='index')
+            self.dfs.append((modified_df, df_dict, file))
 
         if self.lazy_loading:
             return self.generator
@@ -112,7 +114,6 @@ class Exchange:
             count += 1
             for step in range(0, total_steps):
                 info = {
-                    "feed": df.head(step),
                     "current_tick": df_dict[step],
                     "current_tick_true": df_dict[step + self.slippage],
                     "filepath": file,
@@ -125,27 +126,4 @@ class Exchange:
                 yield info
 
 
-if __name__ == "__main__":
-    # Ignore this is me just testing
-    class Algos:
-        def __init__(self): return None
-        def setup0(self, df): return df
-        def algo0(self, **var):
-            if var["new_stock"]:
-                return 1
-            else:
-                return -1
-        def send_setup(self, df): return self.setup0(df)
-        def send_algo(self, **var): return self.algo0(**var)
 
-    exchange = Exchange("../Data/intra_all_6")
-    exchange.modify_data(1, algorithm=Algos())
-
-    count = 0
-    print(exchange.dfs[0][0])
-    for i in exchange.step():
-        print(i["current_tick"])
-        break
-        # count += 1
-        # if count == 2:
-        #     break
